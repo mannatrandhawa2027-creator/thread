@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thread - See it. Make it.</title>
+<meta name="description" content="Turn a photo of something you love into a personalized, beginner-friendly knitting or crochet pattern.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='34' r='24' fill='%23c96f4a'/%3E%3Cpath d='M12 30c8-6 32-6 40 0M14 40c7-5 29-5 36 0M18 49c6-4 22-4 28 0' stroke='%23faf6ef' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3Cpath d='M46 12l10-8' stroke='%238b6f56' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="#/" data-nav="home">
+    <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="24" fill="currentColor"/><path d="M12 30c8-6 32-6 40 0M14 40c7-5 29-5 36 0M18 49c6-4 22-4 28 0" stroke="#faf6ef" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M46 12l10-8" stroke="#8b6f56" stroke-width="4" stroke-linecap="round"/></svg>
+    <span class="brand-word">Thread</span>
+  </a>
+  <div class="nav-links">
+    <a href="#/create" data-nav="create">Create a Pattern</a>
+    <a href="#/patterns" data-nav="patterns">My Patterns</a>
+  </div>
+</nav>
+
+<main id="app">
+
+  <!-- ============ HOME ============ -->
+  <section id="view-home" class="view">
+    <div class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">AI pattern studio for new makers</p>
+        <h1>See it. <span class="accent">Make it.</span></h1>
+        <p class="hero-sub">Turn a photo of something you love into a personalized, beginner-friendly knitting or crochet pattern.</p>
+        <div class="hero-cta-row">
+          <a href="#/create" class="btn btn-primary btn-lg">Create My Pattern</a>
+        </div>
+        <p class="hero-note">Free to use &middot; No account needed</p>
+      </div>
+      <div class="hero-media">
+        <img src="assets/hero.jpg" alt="A handmade cream and sage cardigan draped over a wooden chair with balls of yarn" loading="eager">
+        <div class="hero-media-tag">Made with Thread</div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <h2>How it works</h2>
+      <div class="steps-grid">
+        <div class="card step-card">
+          <div class="step-num">1</div>
+          <h3>Upload your inspiration</h3>
+          <p>Snap a photo, or screenshot something you love on Pinterest, Instagram or Google.</p>
+        </div>
+        <div class="card step-card">
+          <div class="step-num">2</div>
+          <h3>Personalize your project</h3>
+          <p>Pick knitting or crochet, your skill level, size and the yarn you have - or let us choose for you.</p>
+        </div>
+        <div class="card step-card">
+          <div class="step-num">3</div>
+          <h3>Get your pattern</h3>
+          <p>Receive a clear, step-by-step pattern written for beginners, with every stitch explained.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CREATE ============ -->
+  <section id="view-create" class="view" hidden>
+    <div class="page-head">
+      <h1>Create your pattern</h1>
+      <p>Tell us about your project. Anything you are unsure about, mark "I don't know" and we will make a sensible choice for you.</p>
+    </div>
+
+    <form id="create-form" class="card form-card" novalidate>
+
+      <div class="field">
+        <label class="field-label">Your inspiration image <span class="opt">(optional)</span></label>
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload a reference photo or screenshot">
+          <input type="file" id="image-input" accept="image/*" hidden>
+          <div id="dz-empty" class="dz-empty">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <p><strong>Tap to upload a photo or screenshot</strong><br>or drag and drop it here</p>
+          </div>
+          <div id="dz-preview" class="dz-preview" hidden>
+            <img id="preview-img" alt="Your uploaded reference">
+            <div class="dz-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="replace-img">Replace</button>
+              <button type="button" class="btn btn-ghost btn-sm danger" id="remove-img">Remove</button>
+            </div>
+          </div>
+        </div>
+        <p class="field-hint" id="vision-hint">A photo of something you own, or a screenshot of inspiration from Pinterest, Instagram or Google - anything that shows the look you want. With a vision-enabled server setup, the AI uses it to understand shapes, colors and construction.</p>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Craft</span>
+        <div class="segmented" data-field="craftType">
+          <button type="button" data-value="Knitting">Knitting</button>
+          <button type="button" data-value="Crochet">Crochet</button>
+        </div>
+        <p class="field-error" data-error="craftType" hidden>Please choose knitting or crochet.</p>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Skill level</span>
+        <div class="segmented" data-field="skillLevel">
+          <button type="button" data-value="Beginner">Beginner</button>
+          <button type="button" data-value="Beginner+">Beginner+</button>
+          <button type="button" data-value="Intermediate">Intermediate</button>
+        </div>
+        <p class="field-error" data-error="skillLevel" hidden>Please pick the level that sounds most like you.</p>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Size</span>
+        <div class="segmented" data-field="size">
+          <button type="button" data-value="Small">Small</button>
+          <button type="button" data-value="Medium">Medium</button>
+          <button type="button" data-value="Large">Large</button>
+        </div>
+        <p class="field-error" data-error="size" hidden>Please choose a size.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label class="field-label" for="yarn-type">Yarn type</label>
+          <input type="text" id="yarn-type" placeholder="e.g. merino wool, cotton" autocomplete="off">
+          <label class="idk"><input type="checkbox" id="yarn-type-idk"> I don't know</label>
+          <p class="field-error" data-error="yarnType" hidden>Tell us your yarn type, or tick "I don't know".</p>
+        </div>
+        <div class="field">
+          <label class="field-label" for="yarn-weight">Yarn weight</label>
+          <select id="yarn-weight">
+            <option value="">Choose a weight</option>
+            <option>Fingering / sock</option>
+            <option>DK / light worsted</option>
+            <option>Worsted / aran</option>
+            <option>Bulky / chunky</option>
+            <option>Super bulky</option>
+            <option value="__idk__">I don't know</option>
+          </select>
+          <p class="field-error" data-error="yarnWeight" hidden>Pick a weight, or choose "I don't know".</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="yarn-qty">Yarn quantity</label>
+        <input type="text" id="yarn-qty" placeholder="e.g. 4 skeins, about 800 m" autocomplete="off">
+        <label class="idk"><input type="checkbox" id="yarn-qty-idk"> I don't know</label>
+        <p class="field-error" data-error="yarnQuantity" hidden>Tell us roughly how much yarn you have, or tick "I don't know".</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="description">Anything else? <span class="opt">(optional)</span></label>
+        <textarea id="description" rows="3" placeholder="e.g. It's for my mum, I want it oversized and cozy, I only know how to knit and purl..."></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg btn-block" id="generate-btn">Generate My Pattern</button>
+      <p class="form-foot">Your pattern is written by AI and checked against beginner-friendly guidelines.</p>
+    </form>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section id="view-results" class="view" hidden>
+    <div id="results-root"></div>
+  </section>
+
+  <!-- ============ MY PATTERNS ============ -->
+  <section id="view-patterns" class="view" hidden>
+    <div class="page-head">
+      <h1>My patterns</h1>
+      <p>Saved on this device in your browser - no account needed. They stay until you delete them.</p>
+    </div>
+    <div id="patterns-list"></div>
+  </section>
+
+</main>
+
+<!-- ============ LOADING OVERLAY ============ -->
+<div id="loading" class="loading" hidden>
+  <div class="loading-card">
+    <div class="spinner" aria-hidden="true"></div>
+    <h2 id="loading-title">Designing your pattern...</h2>
+    <p id="loading-msg">Reading your choices</p>
+  </div>
+</div>
+
+<footer class="footer">
+  <p><strong>Thread</strong> &middot; Patterns are AI-generated and may contain errors - always make a small swatch with scrap yarn first.</p>
+</footer>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
