@@ -10,6 +10,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="canonical" href="https://threadknits.in/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Thread">
+<meta property="og:title" content="Thread - See it. Make it.">
+<meta property="og:description" content="Answer a few quick questions about the look you love and get a personalized, beginner-friendly knitting or crochet pattern draft.">
+<meta property="og:url" content="https://threadknits.in/">
+<meta property="og:image" content="https://threadknits.in/assets/og-cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Thread - See it. Make it.">
+<meta name="twitter:description" content="Answer a few quick questions about the look you love and get a personalized, beginner-friendly knitting or crochet pattern draft.">
+<meta name="twitter:image" content="https://threadknits.in/assets/og-cover.jpg">
 <meta name="google-site-verification" content="SgaYc-v__tWXNKekc5POsW9AbS9yrGAQ0WJj2LKh9-Y" />
 <!-- Microsoft Clarity -->
 <script type="text/javascript">
@@ -301,7 +314,12 @@
   <section id="view-patterns" class="view" hidden>
     <div class="page-head">
       <h1>My patterns</h1>
-      <p>Saved on this device in your browser - no account needed. They stay until you delete them.</p>
+      <p>Saved only in this browser - no account needed. Clearing browser data can remove them, so download a backup to keep a copy or move them to another device.</p>
+      <div class="transfer-actions">
+        <button class="btn btn-ghost btn-sm" id="btn-export" type="button">Download patterns</button>
+        <button class="btn btn-ghost btn-sm" id="btn-import" type="button">Import patterns</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+      </div>
     </div>
     <div id="patterns-list"></div>
   </section>
