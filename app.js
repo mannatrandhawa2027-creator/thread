@@ -924,7 +924,9 @@ function salvageJson(text) {
     list.forEach(function (p) {
       var row = el('div', 'card pattern-row');
       row.innerHTML =
-        '<div class="swatch">' + (p.craftType === 'Crochet' ? '\u{1F9F6}' : '\u{1F9F5}') + '</div>' +
+        '<div class="swatch" aria-hidden="true">' + (p.craftType === 'Crochet'
+          ? '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#5b6b53" stroke-width="1.8" stroke-linecap="round"><path d="M6 20c5-1 9-5 10-10l1-3a2.5 2.5 0 1 0-2-2l-3 1c-5 1-9 5-10 10"/><path d="M16 10l1-3a2.5 2.5 0 1 0-2-2"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#b3572e" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="14" r="6"/><path d="M4.5 11.5c3-1.5 6.5-1.5 9.5 0M4 14.5c3.3-1.7 7-1.7 10 0M6 18c2.5-1 5.5-1 7.5-.3"/><path d="M14 9l7-6M17 11l4-3"/></svg>') + '</div>' +
         '<div class="meta"><h3>' + esc(p.title) + '</h3>' +
         '<p>' + esc([p.craftType, p.difficulty, p.prefs && p.prefs.size].filter(Boolean).join(' \u00B7 ')) + '</p></div>' +
         '<button class="del" title="Delete">Delete</button>';
@@ -940,6 +942,84 @@ function salvageJson(text) {
         location.hash = '#/results';
       });
       root.appendChild(row);
+    });
+  }
+
+  /* ---------------- export / import (manual device transfer) ---------------- */
+  function exportPatterns() {
+    var list = loadPatterns();
+    if (!list.length) { alert('No saved patterns to download yet.'); return; }
+    var payload = {
+      app: 'Thread',
+      kind: 'thread-patterns-export',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      patterns: list
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'thread-patterns.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function importPatterns(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); }
+      catch (e) { alert('That file is not valid JSON - nothing was imported.'); return; }
+      var incoming = (data && data.kind === 'thread-patterns-export' && Array.isArray(data.patterns)) ? data.patterns : null;
+      if (!incoming) { alert('That file does not look like a Thread patterns download - nothing was imported.'); return; }
+      // Merge, never replace: every existing saved pattern stays untouched.
+      // Imported patterns only fill free slots up to the 20-pattern library limit.
+      var existing = loadPatterns();
+      var before = existing.length;
+      var seen = {};
+      existing.forEach(function (p) { if (p && p.id) seen[p.id] = true; });
+      var ARRAY_FIELDS = ['materials', 'tools', 'assumptions', 'steps', 'stitches', 'tips'];
+      var candidates = [];
+      var skipped = 0;
+      incoming.forEach(function (p) {
+        if (!p || typeof p !== 'object' || typeof p.title !== 'string') { skipped++; return; }
+        if (p.id && seen[p.id]) { skipped++; return; }
+        if (!p.id) p.id = 'pat-import-' + Date.now() + '-' + candidates.length;
+        seen[p.id] = true;
+        // Normalize so a hand-edited or partial file cannot break the results view.
+        ARRAY_FIELDS.forEach(function (f) { if (!Array.isArray(p[f])) p[f] = []; });
+        p.steps = p.steps.filter(function (s) { return s && typeof s === 'object'; });
+        p.stitches = p.stitches.filter(function (s) { return s && typeof s === 'object'; });
+        if (!p.prefs || typeof p.prefs !== 'object') p.prefs = {};
+        candidates.push(p);
+      });
+      var slots = Math.max(0, 20 - before);
+      var added = Math.min(candidates.length, slots);
+      var overflow = candidates.length - added;
+      var kept = existing.concat(candidates.slice(0, slots));
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(kept)); }
+      catch (e) { alert('Browser storage is full - the import did not fit. Delete some patterns and try again.'); return; }
+      renderPatternsList();
+      var msg = 'Imported ' + added + ' pattern' + (added === 1 ? '' : 's') + '.';
+      if (before) msg += ' Your ' + before + ' existing pattern' + (before === 1 ? ' was' : 's were') + ' kept untouched.';
+      if (skipped) msg += ' Skipped ' + skipped + ' duplicate or unusable entr' + (skipped === 1 ? 'y' : 'ies') + '.';
+      if (overflow) msg += ' The library holds 20, so ' + overflow + ' imported pattern' + (overflow === 1 ? '' : 's') + ' did not fit - download or delete patterns to make room, then import again.';
+      alert(msg);
+    };
+    reader.readAsText(file);
+  }
+
+  var btnExport = $('#btn-export');
+  var btnImport = $('#btn-import');
+  var importFile = $('#import-file');
+  if (btnExport) btnExport.addEventListener('click', exportPatterns);
+  if (btnImport && importFile) {
+    btnImport.addEventListener('click', function () { importFile.click(); });
+    importFile.addEventListener('change', function () {
+      if (importFile.files && importFile.files[0]) importPatterns(importFile.files[0]);
+      importFile.value = '';
     });
   }
 
