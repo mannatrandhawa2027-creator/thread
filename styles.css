@@ -476,3 +476,6 @@ textarea{resize:vertical}
 @media (prefers-reduced-motion:reduce){
   .land-ball,.land-strand,.land-needle-a,.land-needle-b,.land-stitches{animation:none}
 }
+
+/* Pattern transfer (export/import) */
+.transfer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
