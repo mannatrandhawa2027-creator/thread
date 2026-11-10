@@ -807,7 +807,14 @@ function salvageJson(text) {
 
   /* ---------------- render results ---------------- */
   function renderResults(p) {
+    p = normalizePattern(p);
     var root = $('#results-root');
+    if (!p) {
+      root.innerHTML = '<div class="card error-panel"><h1>That pattern could not be displayed</h1>' +
+        '<p>Its saved data is incomplete. Your other patterns are unaffected.</p>' +
+        '<a class="btn btn-primary" href="#/patterns">Back to My Patterns</a></div>';
+      return;
+    }
     var demoNote = '';
     if (p.mode === 'photo') {
       demoNote = '<div class="demo-ribbon">Generated from your choices and your reference photo, analyzed by Google Gemini (free tier).</div>';
@@ -901,9 +908,69 @@ function salvageJson(text) {
       '</div>';
   }
 
+  /* ---------------- pattern normalization ----------------
+     Defensive shape-fixing for saved/imported patterns so a hand-edited or
+     partial record can never break rendering or the PDF download. Content is
+     preserved: strings/numbers are kept as text, unknown fields are left
+     untouched, and only entries with no usable content are skipped. */
+  function pstr(v) {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    return '';
+  }
+  function plist(v) {
+    var arr = Array.isArray(v) ? v : (v == null ? [] : [v]);
+    var out = [];
+    arr.forEach(function (x) {
+      if (x == null) return;
+      if (typeof x === 'object') { try { out.push(JSON.stringify(x)); } catch (e) { /* unstringifiable - skip */ } return; }
+      out.push(String(x));
+    });
+    return out;
+  }
+  function pobjList(v, first, second) {
+    var arr = Array.isArray(v) ? v : (v == null ? [] : [v]);
+    var out = [];
+    arr.forEach(function (x) {
+      if (x == null) return;
+      if (typeof x !== 'object') {
+        var wrap = {};
+        wrap[first] = String(x);
+        wrap[second] = '';
+        out.push(wrap);
+        return;
+      }
+      x[first] = pstr(x[first]);
+      x[second] = pstr(x[second]);
+      out.push(x);
+    });
+    return out;
+  }
+  function normalizePattern(p) {
+    if (!p || typeof p !== 'object' || typeof p.title !== 'string') return null;
+    p.materials = plist(p.materials);
+    p.tools = plist(p.tools);
+    p.assumptions = plist(p.assumptions);
+    p.tips = plist(p.tips);
+    p.steps = pobjList(p.steps, 'title', 'detail');
+    p.stitches = pobjList(p.stitches, 'term', 'explanation');
+    p.craftType = pstr(p.craftType);
+    p.difficulty = pstr(p.difficulty);
+    p.summary = pstr(p.summary);
+    p.mode = pstr(p.mode);
+    p.hadPhoto = !!p.hadPhoto;
+    if (!p.prefs || typeof p.prefs !== 'object' || Array.isArray(p.prefs)) p.prefs = {};
+    p.prefs.size = pstr(p.prefs.size);
+    p.prefs.projectType = pstr(p.prefs.projectType);
+    return p;
+  }
+
   /* ---------------- session storage ---------------- */
   function loadPatterns() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+    try {
+      var v = JSON.parse(localStorage.getItem(STORE_KEY));
+      return Array.isArray(v) ? v : [];
+    }
     catch (e) { return []; }
   }
   function savePattern(p) {
@@ -913,7 +980,7 @@ function salvageJson(text) {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(0, 20))); } catch (e) {}
   }
   function renderPatternsList() {
-    var list = loadPatterns();
+    var list = loadPatterns().map(normalizePattern).filter(Boolean);
     var root = $('#patterns-list');
     if (!list.length) {
       root.innerHTML = '<div class="card empty-state"><p>No patterns yet this session.</p>' +
@@ -980,7 +1047,6 @@ function salvageJson(text) {
       var before = existing.length;
       var seen = {};
       existing.forEach(function (p) { if (p && p.id) seen[p.id] = true; });
-      var ARRAY_FIELDS = ['materials', 'tools', 'assumptions', 'steps', 'stitches', 'tips'];
       var candidates = [];
       var skipped = 0;
       incoming.forEach(function (p) {
@@ -988,11 +1054,10 @@ function salvageJson(text) {
         if (p.id && seen[p.id]) { skipped++; return; }
         if (!p.id) p.id = 'pat-import-' + Date.now() + '-' + candidates.length;
         seen[p.id] = true;
-        // Normalize so a hand-edited or partial file cannot break the results view.
-        ARRAY_FIELDS.forEach(function (f) { if (!Array.isArray(p[f])) p[f] = []; });
-        p.steps = p.steps.filter(function (s) { return s && typeof s === 'object'; });
-        p.stitches = p.stitches.filter(function (s) { return s && typeof s === 'object'; });
-        if (!p.prefs || typeof p.prefs !== 'object') p.prefs = {};
+        // Normalize every used field so a hand-edited, partial or wrong-typed
+        // entry renders and downloads safely. Content is coerced, not dropped.
+        p = normalizePattern(p);
+        if (!p) { skipped++; return; }
         candidates.push(p);
       });
       var slots = Math.max(0, 20 - before);
