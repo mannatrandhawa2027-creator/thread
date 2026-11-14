@@ -41,29 +41,96 @@ function doPost(e) {
     if (img) parts.push({ inlineData: { mimeType: img.mime, data: img.base64 } });
     parts.push({ text: msgs.system + '\n\n' + msgs.user });
     var lastErr = '';
-    for (var i = 0; i < MODELS.length; i++) {
-      var resp = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + MODELS[i] + ':generateContent?key=' + key_(), {
-        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-        payload: JSON.stringify({ contents: [{ role: 'user', parts: parts }], generationConfig: { responseMimeType: 'application/json' } })
-      });
-      var code = resp.getResponseCode();
-      var body = {};
-      try { body = JSON.parse(resp.getContentText()); } catch (pe) {}
+    var order = orderModels_();
+    for (var i = 0; i < order.length; i++) {
+      var model = order[i];
+      traceStart_(model); // pre-call write: an entry left open marks an execution that died inside this fetch
+      setInFlight_(model);
+      var code = 0, body = {}, failed = null;
+      try {
+        var resp = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key_(), {
+          method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+          timeoutSeconds: FETCH_TIMEOUT_SEC,
+          payload: JSON.stringify({ contents: [{ role: 'user', parts: parts }], generationConfig: { responseMimeType: 'application/json' } })
+        });
+        code = resp.getResponseCode();
+        try { body = JSON.parse(resp.getContentText()); } catch (pe) {}
+      } catch (fe) {
+        failed = 'timeout or transport error';
+      }
+      clearInFlight_(model);
+      traceEnd_(model, failed ? 'exc' : (code === 200 ? 'ok' : 'http_' + code));
+      if (failed) { markBad_(model, BAD_COOLDOWN_SEC); lastErr = failed; continue; }
       if (code === 200 && body.candidates && body.candidates[0]) {
         var text = body.candidates[0].content.parts.filter(function (p) { return !!p.text; }).map(function (p) { return p.text; }).join('');
         var pattern = parsePattern_(text);
-        if (pattern) return json_({ pattern: pattern, meta: { provider: 'gemini', model: MODELS[i], vision: !!img } });
+        if (pattern) { clearBad_(model); return json_({ pattern: pattern, meta: { provider: 'gemini', model: model, vision: !!img } }); }
         lastErr = 'unparseable response';
         continue;
       }
       lastErr = (body.error && body.error.message) || ('HTTP ' + code);
-      if (code === 429 || code === 503 || code === 404 || code >= 500) continue; // try next model
+      if (code === 429) { markBad_(model, RATE_COOLDOWN_SEC); continue; }
+      if (code === 503 || code === 404 || code >= 500) { markBad_(model, BAD_COOLDOWN_SEC); continue; }
       return json_({ error: { code: 'UPSTREAM', message: 'The AI service returned an error (' + code + ').' } });
     }
     return json_({ error: { code: 'BUSY', message: 'The AI service is busy right now - please try again in a minute.', retryable: true } });
   } catch (err) {
     return json_({ error: { code: 'BAD_REQUEST', message: 'The request could not be understood.' } });
   }
+}
+
+// ---- resilience: bounded per-model timeout + cross-request breaker ----
+// UrlFetchApp's documented default timeout is 360s - the same as the 6-minute
+// per-execution budget - so one stalled model call used to consume the whole
+// request and the fallback loop below never ran. FETCH_TIMEOUT_SEC bounds one
+// model call so a stalled model fails in time for the next model to answer
+// (healthy generations observed at ~15-30s; 75s gives them ample headroom).
+// The breaker (script cache) demotes models that just failed or are in flight,
+// so later requests start at a healthier model; demoted models are still tried
+// as a last resort when nothing else is available.
+var FETCH_TIMEOUT_SEC = 75;
+var BAD_COOLDOWN_SEC = 1800;   // exceptions/404/5xx: demote this model for 30 min
+var RATE_COOLDOWN_SEC = 120;   // 429: per-minute limits recover quickly
+var TRY_TTL_SEC = 420;         // in-flight marker outlives the 6-min execution cap
+
+function cache_() { return CacheService.getScriptCache(); }
+function markBad_(m, secs) { try { cache_().put('mbad_' + m, '1', secs); } catch (e) {} }
+function clearBad_(m) { try { cache_().remove('mbad_' + m); } catch (e) {} }
+function isBad_(m) { try { return !!cache_().get('mbad_' + m); } catch (e) { return false; } }
+function setInFlight_(m) { try { cache_().put('mtry_' + m, '1', TRY_TTL_SEC); } catch (e) {} }
+function clearInFlight_(m) { try { cache_().remove('mtry_' + m); } catch (e) {} }
+function inFlight_(m) { try { return !!cache_().get('mtry_' + m); } catch (e) { return false; } }
+
+function orderModels_() {
+  var fresh = [], stale = [];
+  for (var i = 0; i < MODELS.length; i++) {
+    var m = MODELS[i];
+    (isBad_(m) || inFlight_(m) ? stale : fresh).push(m);
+  }
+  return fresh.concat(stale); // a demoted model is still better than no attempt at all
+}
+
+// Last few model attempts with stage timings - model id, timestamps and outcome
+// class only (never photos, prompts or keys). An entry with t0 but no end marks
+// an execution that died inside the fetch: proof of where a stall happened.
+function traceStart_(m) {
+  try {
+    var p = PropertiesService.getScriptProperties();
+    var arr = JSON.parse(p.getProperty('TRACE') || '[]');
+    arr.push({ m: m, t0: Date.now() });
+    if (arr.length > 12) arr = arr.slice(arr.length - 12);
+    p.setProperty('TRACE', JSON.stringify(arr));
+  } catch (e) {}
+}
+function traceEnd_(m, out) {
+  try {
+    var p = PropertiesService.getScriptProperties();
+    var arr = JSON.parse(p.getProperty('TRACE') || '[]');
+    for (var i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].m === m && !arr[i].end) { arr[i].end = Date.now(); arr[i].out = out; break; }
+    }
+    p.setProperty('TRACE', JSON.stringify(arr));
+  } catch (e) {}
 }
 
 var CRAFTS = ['Knitting', 'Crochet'];
@@ -196,4 +263,3 @@ function buildMessages_(prefs, visionOk) {
 
   return { system: system, user: user };
 }
-
