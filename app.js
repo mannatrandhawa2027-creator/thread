@@ -184,14 +184,19 @@
 
   function readImage(file) {
     if (!state.photoServer.vision) return;
-    if (!/^image\//.test(file.type)) { alert('That file is not an image - please choose a photo.'); return; }
+    if (file.type && !/^image\//.test(file.type)) { alert('That file is not an image - please choose a photo.'); return; }
     var reader = new FileReader();
-    reader.onload = function () {
-      downscale(reader.result, 1024, 0.82, function (dataUrl) { setImage(dataUrl); });
+    var unreadable = function () {
+      setImage(null);
+      photoError('This photo cannot be read on this device. Please try a JPG or PNG photo instead - a screenshot of the photo works well. Your photo was not uploaded anywhere.');
     };
+    reader.onload = function () {
+      downscale(reader.result, 1024, 0.82, function (dataUrl) { setImage(dataUrl); }, unreadable);
+    };
+    reader.onerror = unreadable;
     reader.readAsDataURL(file);
   }
-  function downscale(dataUrl, maxDim, quality, cb) {
+  function downscale(dataUrl, maxDim, quality, cb, failCb) {
     var img = new Image();
     img.onload = function () {
       var w = img.width, h = img.height;
@@ -202,7 +207,10 @@
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       cb(canvas.toDataURL('image/jpeg', quality));
     };
-    img.onerror = function () { cb(dataUrl); };
+    // An undecodable format (for example HEIC photos in a browser that cannot
+    // read them) must fail here - never send the raw file, which the server
+    // would reject after a long wait.
+    img.onerror = function () { if (failCb) failCb(); else cb(dataUrl); };
     img.src = dataUrl;
   }
   function setImage(dataUrl) {
